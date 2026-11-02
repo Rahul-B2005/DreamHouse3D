@@ -1,0 +1,1 @@
+export const calcSolar=({roofArea=800,rate=8,panelWatt=550})=>{const panels=Math.floor(roofArea*.6/21.5),capacityKw=+(panels*panelWatt/1000).toFixed(1),monthlyKwh=Math.round(capacityKw*120);return {roofArea,panels,panelWatt,capacityKw,monthlyKwh,annualKwh:monthlyKwh*12,monthlySavings:monthlyKwh*rate}};

@@ -1,0 +1,2 @@
+import m from 'mongoose';
+export default m.model('Project',new m.Schema({userId:{type:m.Types.ObjectId,ref:'User',index:true,required:true},projectName:{type:String,required:true},ownerName:String,location:String,houseType:String,style:String,floors:{type:Number,default:1},bedrooms:Number,bathrooms:Number,plotWidth:Number,plotLength:Number,floorArea:Number,budget:Number,status:{type:String,enum:['draft','completed'],default:'draft'},designData:{type:m.Schema.Types.Mixed,default:{}}},{timestamps:true}));

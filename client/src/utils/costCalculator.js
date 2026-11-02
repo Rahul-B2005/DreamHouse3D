@@ -1,0 +1,2 @@
+export const calcCost=({area=1500,costPerSqFt=1800,furnitureCount=20,pool=false,garden=false,solarKw=0})=>{const construction=area*costPerSqFt,materials=construction*.18,furniture=furnitureCount*15000,electrical=area*120,plumbing=area*90,landscaping=(garden?150000:30000)+(pool?600000:0),solar=solarKw*55000;
+return {construction,materials,furniture,electrical,plumbing,landscaping,solar,total:construction+materials+furniture+electrical+plumbing+landscaping+solar}};

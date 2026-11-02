@@ -1,0 +1,7 @@
+import React,{useEffect,useState} from 'react';import {Link,useNavigate} from 'react-router-dom';import api,{errMsg} from '../services/api';
+export default()=>{const [list,setList]=useState(null);const [err,setErr]=useState('');const nav=useNavigate();const u=JSON.parse(localStorage.getItem('user')||'{}');
+const load=()=>api.get('/projects').then(r=>setList(r.data)).catch(e=>setErr(errMsg(e)));useEffect(()=>{load()},[]);
+const make=async()=>{const {data}=await api.post('/projects',{projectName:'Untitled home',ownerName:u.name});nav('/designer/'+data._id)};
+const del=async id=>{await api.delete('/projects/'+id);load()};const dup=async id=>{await api.post(`/projects/${id}/duplicate`);load()};
+return <div className="page"><h1>Welcome, {u.name}</h1>{err&&<div className="toast">{err}</div>}<div className="grid"><div className="card"><h2>{list?.length??'-'}</h2>Projects</div><div className="card"><h2>{(list||[]).reduce((s,p)=>s+(p.budget||0),0).toLocaleString('en-IN')}</h2>Total budget (INR)</div><div className="card"><button className="btn" onClick={make}>New project</button></div></div>
+<h2 style={{marginTop:24}}>My projects</h2>{list&&!list.length&&<p>No projects yet. Create one to start designing.</p>}<div className="grid">{(list||[]).map(p=><div className="card" key={p._id}><h2>{p.projectName}</h2><p>{p.style||'No style yet'} · {p.status}</p><Link to={'/designer/'+p._id}>Open</Link> <button className="btn ghost" onClick={()=>dup(p._id)}>Duplicate</button> <button className="btn ghost" onClick={()=>del(p._id)}>Delete</button></div>)}</div></div>};

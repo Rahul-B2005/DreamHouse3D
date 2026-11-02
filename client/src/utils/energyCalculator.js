@@ -1,0 +1,1 @@
+export const calcEnergy=({area=1500,floors=1,glazing=.2,solarKw=0})=>{const monthly=Math.round(area*.18*(1+.05*(floors-1)));return {monthlyKwh:monthly,annualKwh:monthly*12,efficiencyScore:Math.max(40,Math.min(98,Math.round(88-glazing*40+solarKw*2)))}};

@@ -1,0 +1,10 @@
+import {Router} from 'express';import Project from '../models/Project.js';import Room from '../models/Room.js';import protect from '../middleware/auth.js';
+const r=Router();r.use(protect);
+const own=req=>({_id:req.params.id,userId:req.user._id});
+r.get('/',async(req,res)=>res.json(await Project.find({userId:req.user._id}).select('-designData').sort('-updatedAt').lean()));
+r.post('/',async(req,res)=>{if(!req.body.projectName)return res.status(400).json({message:'Project name required'});res.status(201).json(await Project.create({...req.body,userId:req.user._id}))});
+r.post('/:id/duplicate',async(req,res)=>{const p=await Project.findOne(own(req)).lean();if(!p)return res.status(404).json({message:'Project not found'});delete p._id;res.status(201).json(await Project.create({...p,projectName:p.projectName+' (copy)',status:'draft'}))});
+r.get('/:id',async(req,res)=>{const p=await Project.findOne(own(req));p?res.json(p):res.status(404).json({message:'Project not found'})});
+r.put('/:id',async(req,res)=>{const {userId,_id,...b}=req.body;const p=await Project.findOneAndUpdate(own(req),b,{new:true,runValidators:true});p?res.json(p):res.status(404).json({message:'Project not found'})});
+r.delete('/:id',async(req,res)=>{const p=await Project.findOneAndDelete(own(req));if(!p)return res.status(404).json({message:'Project not found'});await Room.deleteMany({projectId:p._id});res.json({ok:true})});
+export default r;

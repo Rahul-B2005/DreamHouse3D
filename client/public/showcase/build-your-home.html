@@ -1,0 +1,87 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Build your home, step by step</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--ink:#14213a;--mut:#5b6679;--line:#d5dae3;--acc:#b9822a;--accI:#fff;--bad:#a32d2d}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1626;--card:#16263d;--ink:#e8edf5;--mut:#9fb0c8;--line:#2a3d5a;--acc:#e0b15a;--accI:#1a1405;--bad:#f09595}}
+:root[data-theme="dark"]{--bg:#0d1626;--card:#16263d;--ink:#e8edf5;--mut:#9fb0c8;--line:#2a3d5a;--acc:#e0b15a;--accI:#1a1405;--bad:#f09595}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+.app{display:grid;grid-template-columns:minmax(300px,380px) 1fr;height:100%}
+#v{position:relative;order:2;min-height:0}#c{position:absolute;inset:0;width:100%;height:100%;display:block}
+.p{order:1;display:flex;flex-direction:column;min-height:0;background:var(--card);border-right:1px solid var(--line)}
+.body{flex:1;overflow:auto;padding:16px}.foot{display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+h1{font-size:18px;margin:0 0 2px;font-weight:600}.sub{color:var(--mut);font-size:13px;margin-bottom:12px}
+.bar{display:flex;gap:4px;margin:0 0 14px}.bar i{flex:1;height:4px;border-radius:2px;background:var(--line)}.bar i.d{background:var(--acc)}
+label{display:block;margin:12px 0 4px;font-size:14px}input[type=range]{width:100%;accent-color:var(--acc)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px}
+button.on,button.go{background:var(--acc);color:var(--accI);border-color:var(--acc);font-weight:600}button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.sw{width:34px;height:34px;padding:0;border-radius:50%}.sw.on{outline:2px solid var(--acc);outline-offset:2px}
+.note{font-size:13px;color:var(--mut);margin-top:10px}.bad{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:14px}td{padding:6px 0;border-bottom:1px solid var(--line)}td+td{text-align:right}
+.chk{display:flex;align-items:center;gap:8px;margin:10px 0}.chk input{width:18px;height:18px;accent-color:var(--acc)}
+@media(max-width:760px){.app{grid-template-columns:1fr;grid-template-rows:46% 54%}#v{order:1}.p{order:2;border-right:0;border-top:1px solid var(--line)}}
+</style></head><body>
+<div class="app"><div class="p"><div class="body" id="b"></div><div class="foot"><button id="bk">Back</button><button id="nx" class="go" style="flex:1">Next</button></div></div><div id="v"><canvas id="c"></canvas></div></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const $=id=>document.getElementById(id),inr=v=>'INR '+Math.round(v).toLocaleString('en-IN');
+const cfg={W:40,L:55,floors:2,style:'modern',bed:3,bath:2,garage:true,pool:false,garden:true,solar:true,wall:'#f1efe9',roof:'#3a3f45',time:'day'};
+const derive=()=>{const g=cfg.garage?12:0,hw=Math.max(14,cfg.W-16-g),hl=Math.max(14,cfg.L-20),fp=hw*hl,total=fp*cfg.floors,need=250+120*cfg.bed+45*cfg.bath;return{g,hw,hl,fp,total,need,ok:total>=need}};
+const STEPS=['Plot size','Floors and style','Rooms','Extras','Colours and light','Your estimate'];let st=0;
+const WALLS=['#f1efe9','#d9c7a3','#9aa5b1','#2f3338','#c8a27a','#e6d3d3'],ROOFS=['#3a3f45','#7b3b2a','#5b6770','#1f2226'];
+const sl=(l,k,mn,mx,u)=>`<label>${l}: <b id="v_${k}">${cfg[k]}${u}</b></label><input type="range" min="${mn}" max="${mx}" value="${cfg[k]}" oninput="upd('${k}',+this.value)" aria-label="${l}">`;
+const ch=(k,v,t)=>`<button class="${cfg[k]===v?'on':''}" onclick="set('${k}','${v}')">${t}</button>`;
+const tg=(k,t)=>`<label class="chk"><input type="checkbox" ${cfg[k]?'checked':''} onchange="set('${k}',this.checked)"> ${t}</label>`;
+function chk(){const d=derive(),el=$('chk');if(!el)return;el.innerHTML=d.ok?`Total ${Math.round(d.total)} sq ft covers the ${d.need} sq ft these rooms need.`:`<span class="bad">Total ${Math.round(d.total)} sq ft is below the ${d.need} sq ft these rooms need. Add a floor, fewer rooms, or a bigger plot.</span>`;$('nx').disabled=st===2&&!d.ok;const f=$('fix');if(f)f.style.display=!d.ok&&cfg.floors<3?'':'none'}
+function render(){const d=derive();let h=`<h1>${STEPS[st]}</h1><div class="sub">Step ${st+1} of ${STEPS.length}</div><div class="bar">${STEPS.map((_,i)=>`<i class="${i<=st?'d':''}"></i>`).join('')}</div>`;
+if(st==0)h+=sl('Plot width','W',25,60,' ft')+sl('Plot length','L',35,80,' ft')+`<p class="note" id="fpn"></p><p class="note">Setbacks: 8 ft each side and rear, 12 ft front.</p>`;
+if(st==1)h+=`<label>Floors</label><div class="row">${[1,2,3].map(n=>`<button class="${cfg.floors===n?'on':''}" onclick="set('floors',${n})">${n}</button>`).join('')}</div><label>Style</label><div class="row">${ch('style','modern','Modern flat roof')}${ch('style','classic','Classic pitched roof')}${ch('style','wood','Timber upper floor')}</div>`;
+if(st==2)h+=sl('Bedrooms','bed',1,5,'')+sl('Bathrooms','bath',1,4,'')+`<p class="note" id="chk"></p><button id="fix" onclick="set('floors',cfg.floors+1)">Add a floor</button>`;
+if(st==3)h+=tg('garage','Garage (adds 12 ft width)')+tg('pool','Swimming pool beside the house')+tg('garden','Garden trees')+tg('solar','Rooftop solar panels');
+if(st==4)h+=`<label>Walls</label><div class="row">${WALLS.map(c=>`<button class="sw ${cfg.wall===c?'on':''}" style="background:${c}" aria-label="Wall ${c}" onclick="set('wall','${c}')"></button>`).join('')}</div><label>Roof</label><div class="row">${ROOFS.map(c=>`<button class="sw ${cfg.roof===c?'on':''}" style="background:${c}" aria-label="Roof ${c}" onclick="set('roof','${c}')"></button>`).join('')}</div><label>Time of day</label><div class="row">${ch('time','day','Day')}${ch('time','evening','Evening')}${ch('time','night','Night')}</div>`;
+if(st==5){const rate={modern:1800,classic:1600,wood:2000}[cfg.style],con=d.total*rate,pn=cfg.solar?Math.floor(d.fp*.5/21.5):0,kw=+(pn*.55).toFixed(1),ex=[['Construction',con],['Garage',cfg.garage?350000:0],['Pool',cfg.pool?600000:0],['Garden',cfg.garden?150000:0],['Solar',kw*55000]];
+h+=`<table>${ex.filter(r=>r[1]).map(r=>`<tr><td>${r[0]}</td><td>${inr(r[1])}</td></tr>`).join('')}<tr><td><b>Total estimate</b></td><td><b>${inr(ex.reduce((s,r)=>s+r[1],0))}</b></td></tr></table><p class="note">${cfg.floors} floor(s), ${Math.round(d.total)} sq ft, ${cfg.bed} bed, ${cfg.bath} bath. Usage about ${Math.round(d.total*.18)} kWh/month; solar ${kw} kW makes about ${Math.round(kw*120)} kWh/month.</p><p class="note">Planning estimates only, not architectural, engineering or construction advice.</p>`}
+$('b').innerHTML=h;$('bk').disabled=st==0;$('nx').textContent=st==5?'Start over':'Next';$('nx').disabled=false;info();chk()}
+function info(){const e=$('fpn');if(e){const d=derive();e.textContent=`House footprint ${d.hw} x ${d.hl} ft, ${d.fp} sq ft per floor.`}}
+function upd(k,v){cfg[k]=v;$('v_'+k).textContent=v+(k=='bed'||k=='bath'?'':' ft');info();chk();queue()}
+function set(k,v){cfg[k]=v;render();queue()}
+$('nx').onclick=()=>{if(st==5){st=0;Object.assign(cfg,{W:40,L:55,floors:2,bed:3,bath:2});render();queue();return}st++;render()};$('bk').onclick=()=>{st--;render()};
+
+const cv=$('c'),R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;R.toneMapping=THREE.ACESFilmicToneMapping;R.outputEncoding=THREE.sRGBEncoding;
+const S=new THREE.Scene(),cam=new THREE.PerspectiveCamera(45,1,1,1000);cam.position.set(70,45,95);
+const ctl=new THREE.OrbitControls(cam,cv);ctl.target.set(0,8,0);ctl.enableDamping=true;ctl.autoRotate=true;ctl.autoRotateSpeed=.8;ctl.maxPolarAngle=Math.PI/2.02;ctl.addEventListener('start',()=>ctl.autoRotate=false);
+const rnd=Math.random,M=o=>new THREE.MeshStandardMaterial(o);
+const wk=document.createElement('canvas');wk.width=wk.height=128;{const g=wk.getContext('2d');for(let x=0;x<128;x+=8){g.fillStyle=`hsl(28,${35+rnd()*10}%,${32+rnd()*12}%)`;g.fillRect(x,0,7,128);g.fillStyle='#0003';g.fillRect(x+7,0,1,128)}}
+const wt=new THREE.CanvasTexture(wk);wt.wrapS=wt.wrapT=THREE.RepeatWrapping;wt.repeat.set(3,1);wt.encoding=THREE.sRGBEncoding;
+const mWood=M({map:wt,roughness:.6}),mDark=M({color:0x25282c,roughness:.5,metalness:.6}),mGlass=M({color:0x9cc8dc,roughness:.05,metalness:.3,transparent:true,opacity:.55,emissive:0xffc880,emissiveIntensity:0}),mDoor=M({color:0x6b4a2b,roughness:.5}),mConc=M({color:0x9a9a98,roughness:1}),mDeck=M({color:0xd8d2c4,roughness:.9}),mPanel=M({color:0x14284b,roughness:.2,metalness:.8}),mTrunk=M({color:0x5a3d26,roughness:1}),mLeaf=M({color:0x2f6b3a,roughness:1,flatShading:true}),mWater=M({color:0x22b4d6,roughness:.08,metalness:.25,transparent:true,opacity:.85}),mLawn=M({color:0x5f9a4a,roughness:1});
+const out=new THREE.Mesh(new THREE.PlaneGeometry(900,900),M({color:0x3f6d33,roughness:1}));out.rotation.x=-Math.PI/2;out.receiveShadow=true;S.add(out);
+const sun=new THREE.DirectionalLight(0xffffff,2);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);const sc=sun.shadow.camera;sc.left=-70;sc.right=70;sc.top=70;sc.bottom=-70;sc.far=400;sun.shadow.bias=-.0005;S.add(sun);const hemi=new THREE.HemisphereLight(0xbfe0ff,0x3a5a2a,.6);S.add(hemi);S.fog=new THREE.Fog(0x8ec9ff,200,600);
+const TM={day:{sky:0x8ec9ff,sc:0xfff4e0,si:2.4,p:[60,90,60],h:.7,g:0},evening:{sky:0xe58a5c,sc:0xff9a50,si:1.7,p:[90,26,40],h:.45,g:.4},night:{sky:0x070b18,sc:0x8aa0ff,si:.25,p:[-40,80,30],h:.22,g:1}};
+let hs=null,trees=[],rise=1;
+function add(g,m,w,h,d,x,y,z){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;g.add(o);return o}
+function light(){const t=TM[cfg.time];S.background=new THREE.Color(t.sky);S.fog.color.set(t.sky);sun.color.set(t.sc);sun.intensity=t.si;sun.position.set(...t.p);hemi.intensity=t.h;mGlass.emissiveIntensity=.9*t.g}
+function build(){if(hs){hs.traverse(o=>o.geometry&&o.geometry.dispose());S.remove(hs)}hs=new THREE.Group();trees=[];S.add(hs);
+const d=derive(),{g,hw,hl}=d,W=cfg.W,L=cfg.L,F=cfg.floors,xh=-g/2,zb=-L/2+8,zc=zb+hl/2,zf=zb+hl;
+const mW=M({color:cfg.wall,roughness:.9}),mR=M({color:cfg.roof,roughness:.4,metalness:.5});
+const lawn=add(hs,mLawn,W,.2,L,0,.1,0);lawn.castShadow=false;
+[[W,.4,-L/2],[W,.4,L/2]].forEach(a=>add(hs,mW,a[0],3,a[1],0,1.5,a[2]));[-W/2,W/2].forEach(x=>add(hs,mW,.4,3,L,x,1.5,0));
+const n=Math.max(2,Math.floor(hw/10));let doorX=0;
+for(let f=0;f<F;f++){const ins=cfg.style==='modern'&&f>0?2:0,w=hw-ins*2,m=cfg.style==='wood'&&f>0?mWood:mW;add(hs,m,w,10,hl,xh,5+f*10,zc);if(f>0)add(hs,mDark,w+.6,.5,hl+.6,xh,f*10,zc);
+for(let i=0;i<n;i++){const x=xh-w/2+(i+.5)*w/n,y=5+f*10+.5;if(f==0&&i==n-1){doorX=x;add(hs,mDoor,3.6,7,.5,x,3.7,zf+.15)}else{add(hs,mDark,4.6,5.6,.3,x,y,zf+.05);add(hs,mGlass,4,5,.3,x,y,zf+.2)}}}
+const top=F*10;
+if(cfg.style==='classic'){const sh=new THREE.Shape();sh.moveTo(-hl/2-1,0);sh.lineTo(hl/2+1,0);sh.lineTo(0,6);const r=new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{depth:hw+2,bevelEnabled:false}),mR);r.rotation.y=-Math.PI/2;r.position.set(xh+(hw+2)/2,top,zc);r.castShadow=true;hs.add(r);
+ if(cfg.solar){const a=Math.atan(6/(hl/2+1));for(let i=0;i<Math.floor(hw/4);i++){const p=add(hs,mPanel,3.4,.3,hl/2-1,xh-hw/2+2.4+i*4,top+3.1,zc+hl/4+.2);p.rotation.x=a}}}
+else{add(hs,mR,hw+2,.8,hl+2,xh,top+.4,zc);if(cfg.solar)for(let r=0;r<2;r++)for(let i=0;i<Math.floor((hw-2)/3.6);i++){const p=add(hs,mPanel,3.2,.2,2.6,xh-hw/2+2.4+i*3.6,top+1.3,zc-2+r*4);p.rotation.x=-.2}}
+if(cfg.garage){const gd=Math.min(hl,22),xg=xh+hw/2+6;add(hs,mW,11.5,9,gd,xg,4.5,zb+gd/2);add(hs,mDark,9,7.5,.3,xg,3.75,zb+gd+.1);add(hs,mR,12.5,.8,gd+1,xg,9.4,zb+gd/2);add(hs,mConc,10,.1,L/2-(zb+gd),xg,.25,(zb+gd+L/2)/2)}
+add(hs,mConc,3.6,.1,L/2-zf,doorX,.25,(zf+L/2)/2);
+if(cfg.pool){const px=xh-hw/2-4;add(hs,mDeck,7.5,.3,14,px,.25,zc);const w=add(hs,mWater,5.5,.2,12,px,.32,zc);w.castShadow=false}
+if(cfg.garden){[[-W/2+4,zb-3],[0,zb-3],[W/2-4,zb-3],[W/2-4,zc],[-W/2+4,L/2-4],[W/2-4,L/2-4],[W/2-4,L/2-18]].forEach(p=>{const t=new THREE.Group();add(t,mTrunk,.9,6,.9,0,3,0);[[0,8,0,3.4],[1.4,10.2,.4,2.4]].forEach(b=>{const s=new THREE.Mesh(new THREE.IcosahedronGeometry(b[3],2),mLeaf);s.position.set(b[0],b[1],b[2]);s.castShadow=true;t.add(s)});t.position.set(p[0],0,p[1]);t.userData.p=rnd()*6;hs.add(t);trees.push(t)})}
+light();rise=0;hs.scale.y=.02}
+const bump=(e=>{let q=0;return()=>{if(!q){q=1;requestAnimationFrame(()=>{q=0;build()})}}})();const queue=bump;
+function resize(){const v=$('v');R.setSize(v.clientWidth,v.clientHeight,false);cam.aspect=v.clientWidth/v.clientHeight;cam.updateProjectionMatrix()}new ResizeObserver(resize).observe($('v'));
+let last=performance.now();
+function tick(now){const dt=Math.min((now-last)/1000,.1),t=now/1000;last=now;if(rise<1){rise=Math.min(1,rise+dt/.8);const e=1-Math.pow(1-rise,3);hs.scale.y=.02+.98*e}
+trees.forEach(g=>{g.rotation.z=Math.sin(t*.9+g.userData.p)*.025});ctl.update();R.render(S,cam);requestAnimationFrame(tick)}
+render();build();resize();requestAnimationFrame(tick);
+</script></body></html>

@@ -1,0 +1,2 @@
+export const VIEWS={front:{pos:[14,6,18]},rear:{pos:[-14,6,-18]},garden:{pos:[18,4,2]},interior:{pos:[0,3,4]},top:{pos:[0,34,.1]}};
+export async function captureAll(api){const out={};for(const k of Object.keys(VIEWS)){api.setView(VIEWS[k].pos);await new Promise(r=>setTimeout(r,350));const url=api.canvas().toDataURL('image/jpeg',.9);if(!url||url.length<1000)throw new Error('Image capture failed');out[k]=url}return out}
